@@ -478,7 +478,8 @@ unsigned int integrate(std::vector<int> &arr, unsigned int pulse_size, std::vect
 	} // Over num_pulses
 	
 	if(debug){ graph1->Delete(); graph2->Delete(); }
-	delete[] darr, x1, x2, x_val1, y_val1, x_val2, y_val2;
+	delete[] darr; delete[] x1; delete[] x2; delete[] x_val1; 
+	delete[] y_val1; delete[] x_val2; delete[] y_val2;
 	return num_pulses;
 }
 
@@ -519,7 +520,7 @@ int main(int argc, char* argv[]){
 	std::vector<int> wave;
 	std::vector<double> energy;
 	unsigned int mult;
-	unsigned int wave_size;
+	unsigned int wave_size = 0;
 
 	TFile *file = new TFile(argv[1], "READ");
 	if(file->IsZombie()){
@@ -643,7 +644,7 @@ int main(int argc, char* argv[]){
 	
 	long time_holder1;
 	double time_holder2;
-	clock_t cpu_time;
+	clock_t cpu_time = clock();
 	time_t real_time;
 	
 	unsigned int num_entries = tree->GetEntries();
@@ -711,6 +712,8 @@ int main(int argc, char* argv[]){
 	
 	can->Close();
 	file->Close();
+		
+	rootapp->Delete();
 		
 	return 0;
 }

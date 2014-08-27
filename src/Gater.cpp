@@ -12,7 +12,6 @@
 #include "TBranch.h"
 #include "TSystem.h"
 #include "TApplication.h"
-
 #include "TGraph.h"
 
 #include <sstream>
@@ -23,6 +22,8 @@
 #include <vector>
 #include <time.h>
 #include <cmath>
+
+#include "Structures.h"
 
 #define NEUTRON_MASS 939.565 // Mev/c^2
 #define VANDLE_T_RES 1.0 // ns
@@ -107,10 +108,10 @@ int main(int argc, char* argv[]){
 	unsigned short num_shifts = 0;
 
 	// Branch variables
-	std::vector<double> TOF;
-	std::vector<double> qdc;
-	std::vector<double> energy;
-	std::vector<unsigned int> loc;
+	VandleStructure v_structure;
+	TriggerStructure t_structure;
+	std::vector<double> input_TOF, input_qdc, input_energy;
+	std::vector<unsigned int> input_loc;
 
 	TFile *file = new TFile(argv[1], "READ");
 	if(file->IsZombie()){
@@ -127,10 +128,10 @@ int main(int argc, char* argv[]){
 	
 	TBranch *b_TOF, *b_qdc, *b_loc; // Vandle Branches
 	TBranch *b_energy; // Trigger Branches
-	tree->SetBranchAddress("vandle_TOF", &TOF, &b_TOF);
-	tree->SetBranchAddress("vandle_qdc", &qdc, &b_qdc);
-	tree->SetBranchAddress("vandle_loc", &loc, &b_loc);
-	tree->SetBranchAddress("trigger_energy", &energy, &b_energy);
+	tree->SetBranchAddress("vandle_TOF", &input_TOF, &b_TOF);
+	tree->SetBranchAddress("vandle_qdc", &input_qdc, &b_qdc);
+	tree->SetBranchAddress("vandle_loc", &input_loc, &b_loc);
+	tree->SetBranchAddress("trigger_energy", &input_energy, &b_energy);
 	
 	if(!b_TOF){
 		std::cout << " Note: Failed to load the input branch 'vandle_TOF'\n";
@@ -175,21 +176,17 @@ int main(int argc, char* argv[]){
 	input.close();
 	std::cout << " Finished loading time shifts\n";
 
-	double TOF_value, qdc_value, energy_value;
-	unsigned int loc_value;
+	std::vector<double> TOF, qdc, energy;
+	std::vector<unsigned int> loc;
 	TFile *out_file = NULL;
-	TTree *vandle_tree = NULL, *trigger_tree = NULL;
+	TTree *vandle_tree = NULL;
 	if(!debug){
 		std::cout << " Opening output file 'gater.root'\n";
 		out_file = new TFile("gater.root", "RECREATE");
 
-		vandle_tree = new TTree("Vandle", "Analysis tree");
-		vandle_tree->Branch("vandle_TOF", &TOF_value);
-		vandle_tree->Branch("vandle_qdc", &qdc_value);
-		vandle_tree->Branch("vandle_loc", &loc_value);
-		
-		trigger_tree = new TTree("Trigger", "Analysis tree");
-		trigger_tree->Branch("trigger_energy", &energy_value);		
+		vandle_tree = new TTree(argv[2], "Analysis tree");
+		vandle_tree->Branch("Trigger", &t_structure);
+		vandle_tree->Branch("Vandle", &v_structure);		
 	}
 
 	// Canvas
@@ -248,8 +245,8 @@ int main(int argc, char* argv[]){
 					std::cout << ((float)(num_entries-i)/1000000)*time_holder2 << " s\n";
 				}
 			}
-			for(iter1 = TOF.begin(), iter2 = qdc.begin(), iter3 = loc.begin();
-			  iter1 != TOF.end() && iter2 != qdc.end() && iter3 != loc.end(); iter1++, iter2++, iter3++){
+			for(iter1 = input_TOF.begin(), iter2 = input_qdc.begin(), iter3 = input_loc.begin();
+			  iter1 != input_TOF.end() && iter2 != input_qdc.end() && iter3 != input_loc.end(); iter1++, iter2++, iter3++){
 				hist->Fill((*iter1) - shifts[(*iter3)], (*iter2));
 				count1++;
 			}
@@ -289,27 +286,26 @@ int main(int argc, char* argv[]){
 					std::cout << ((float)(num_entries-i)/1000000)*time_holder2 << " s\n";
 				}
 			}
-			for(iter1 = TOF.begin(), iter2 = qdc.begin(), iter3 = loc.begin(); 
-			  iter1 != TOF.end() && iter2 != qdc.end() && iter3 != loc.end(); iter1++, iter2++, iter3++){
+			for(iter1 = input_TOF.begin(), iter2 = input_qdc.begin(), iter3 = input_loc.begin(); 
+			  iter1 != input_TOF.end() && iter2 != input_qdc.end() && iter3 != input_loc.end(); iter1++, iter2++, iter3++){
 			  	shift = *iter1 - shifts[*iter3];
 			  	if(limit.Interpolate(shift, qdc_limit) && (*iter2) <= qdc_limit){
-					TOF_value = (*iter1) - shifts[(*iter3)];
-					qdc_value = (*iter2);
-					loc_value = (*iter3);
-					hist->Fill(TOF_value, qdc_value);
-					vandle_tree->Fill();
-					valid_event = true;
+			  		v_structure.Append((*iter3), (*iter1) - shifts[(*iter3)], 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, (*iter2), 0.0);
+					hist->Fill((*iter1) - shifts[(*iter3)], (*iter2));
+					if(!valid_event){ valid_event = true; }
 					count2++;
 				}
 				count1++;
 			}
-			count3 += energy.size();
+			count3 += input_energy.size();
 			if(valid_event){
-				for(iter4 = energy.begin(); iter4 != energy.end(); iter4++){
-					energy_value = (*iter4);
-					trigger_tree->Fill();
+				for(iter4 = input_energy.begin(); iter4 != input_energy.end(); iter4++){
+					t_structure.Append((*iter4));
 					count4++;
-				}
+				}			
+				vandle_tree->Fill();
+				v_structure.Zero();
+				t_structure.Zero();
 			}
 		}
 
@@ -323,10 +319,8 @@ int main(int argc, char* argv[]){
 
 	if(!debug){
 		std::cout << " Wrote " << vandle_tree->GetEntries() << " entries to the Vandle tree\n";
-		std::cout << " Wrote " << trigger_tree->GetEntries() << " entries to the Trigger tree\n";
 		out_file->cd();
 		vandle_tree->Write();
-		trigger_tree->Write();
 		out_file->Close();
 	}
 	else{
@@ -336,7 +330,9 @@ int main(int argc, char* argv[]){
 	
 	can->Close();
 	file->Close();
-		
+	
+	rootapp->Delete();
+	
 	return 0;
 }
 

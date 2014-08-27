@@ -19,10 +19,48 @@
 #include <iostream>
 #include <fstream>
 #include <sstream>
+#include <cmath>
+
+#define RADIUS 0.5 // m
+#define DELTA 0.06 // m
+
+struct BinContent{
+	double content;
+	double center;
+	
+	BinContent(double center_, double content_){
+		content = content_; center = center_;
+	}
+};
 
 // Make a slice along the x-axis of a 2D histogram
 // Histograms must have the same number of bins on the x-axis
 // _project_x -------------------------------------------------------
+bool MakeSliceX(TH2D* hist2D, double low, double high, unsigned int &count, std::vector<BinContent> &contents){
+	if(!hist2D){ return false; } // 1D or 2D not initialized
+	double range_min = hist2D->GetYaxis()->GetXmin();
+	double range_max = hist2D->GetYaxis()->GetXmax();
+	int num_bins = hist2D->GetNbinsX();
+	if(!(low <= high && low >= range_min && high <= range_max)){ return false; } // Values out of range
+	contents.clear();
+	
+	int low_bin, high_bin, x_bin, z_bin;
+	hist2D->GetBinXYZ(hist2D->FindBin(0.0, low), x_bin, low_bin, z_bin);
+	hist2D->GetBinXYZ(hist2D->FindBin(0.0, high), x_bin, high_bin, z_bin);
+	
+	// Make the slice along the x-axis
+	count = 0;
+
+	for(int i = low_bin; i <= high_bin; i++){
+		for(int j = 1; j <= num_bins; j++){ 
+			contents.push_back(BinContent(hist2D->GetXaxis()->GetBinCenter(j) ,hist2D->GetBinContent(j, i)));
+			count += hist2D->GetBinContent(j, i);
+		}
+	}
+	
+	return true;
+}
+
 bool MakeSliceX(TH2D* hist2D, TH1D* hist1D, double low, double high, unsigned int &count){
 	if(!hist2D || !hist1D){ return false; } // 1D or 2D not initialized
 	double range_min = hist2D->GetYaxis()->GetXmin();
@@ -56,11 +94,17 @@ bool MakeSliceX(TH2D* hist2D, TH1D* hist1D, double low, double high, unsigned in
 	return true;
 }
 
+// Find the true flight path given a radius from the center of a circle
+// and a distance 'delta_' from that center point
+double RealDistance(double radius_, double delta_, double angle_){
+	return std::sqrt(radius_*radius_ + delta_*delta_ - 2*radius_*delta_*std::cos(angle_));
+}
+
 // For compilation
 int main(int argc, char *argv[]){
 	if(argc < 4){ 
 		std::cout << " Error! Invalid number of arguments. Expected 3, received " << argc-1 << "\n";
-		std::cout << "  SYNTAX: ./TimeAlignCf {filename} {treename} {shift}\n";
+		std::cout << "  SYNTAX: ./TimeAlignCf {filename} {treename} {shift} {location}\n";
 		return 1; 
 	}
 
@@ -82,32 +126,41 @@ int main(int argc, char *argv[]){
 	}
 	tree->SetMakeClass(1);
 	
-	double shifts[42];
-	double bar, shift, flash;
-	unsigned short num_shifts = 0;
+	double angles[42];
+	unsigned int bar;
+	double angle_deg, angle_rad;
 
-	std::ofstream output;
-	if(argc > 3){ output.open(argv[3]); }
-	else{ output.open("time_shifts.dat"); }
+	std::ofstream output(argv[3]);
 	if(!output.good()){ 
-		if(argc > 3){ std::cout << " Error! Failed to load output file '" << argv[3] << "'\n"; }
-		else{ std::cout << " Error! Failed to load output file 'time_shifts.dat'\n"; }
+		std::cout << " Error! Failed to load output file '" << argv[3] << "'\n";
 		file->Close();
 		return 1; 
 	}
 
-	double parameters[3]; 
-	parameters[0] = 0.0;
-	parameters[1] = 0.0;
-	parameters[2] = 0.0;
+	std::ifstream input(argv[4]);
+	if(!input.good()){
+		std::cout << " Error! Failed to load input file '" << argv[4] << "'\n";
+		file->Close();
+		return 1; 
+	}
+	
+	unsigned int count = 0;
+	while(true){
+		input >> bar >> angle_deg >> angle_rad;
+		if(input.eof() || count >= 42){ break; }
+		if(bar < 42){ angles[bar] = angle_rad; }
+		count++;
+	}
+	input.close();
+	std::cout << " Done loading detector angles\n";
 
-	double maximum;
 	double max_x, max_y;
 
+	std::vector<BinContent> hist_contents;
 	std::vector<double> vandle_tof;
 	std::vector<int> vandle_loc;
 	TBranch *b_vandle_tof, *b_vandle_loc;
-	TMarker *marker;
+	//TMarker *marker;
 	
 	tree->SetBranchAddress("vandle_TOF", &vandle_tof, &b_vandle_tof);
 	tree->SetBranchAddress("vandle_loc", &vandle_loc, &b_vandle_loc);
@@ -123,13 +176,13 @@ int main(int argc, char *argv[]){
 		return 1;
 	}
 
-	TCanvas *can1D = new TCanvas("can1D", "1D Canvas");
+	//TCanvas *can1D = new TCanvas("can1D", "1D Canvas");
 	TCanvas *can2D = new TCanvas("can2D", "2D Canvas");
 	
 	std::vector<double>::iterator tof_iter;
 	std::vector<int>::iterator loc_iter;
 	
-	TH1D *hist1 = new TH1D("hist1", "hist1", 1000, -400, 100); // Histogram for slices
+	//TH1D *hist1 = new TH1D("hist1", "hist1", 1000, -400, 100); // Histogram for slices
 	TH2D *hist2 = new TH2D("hist2", "TOF vs. Vandle Bar", 1000, -400, 100, 42, 0, 42); // Main 2d histogram
 	hist2->SetStats(false);
 
@@ -138,6 +191,7 @@ int main(int argc, char *argv[]){
 	unsigned int num_entries = tree->GetEntries();
 	unsigned int chunk = (unsigned int)(num_entries*0.1);
 	unsigned short percent = 0;
+	double real_velocity, fake_TOF;
 	for(unsigned int i = 0; i < num_entries; i++){
 		if(i % chunk == 0){ 
 			std::cout << "  Entry number " << i << " (" << percent << "%)\n"; 
@@ -146,7 +200,9 @@ int main(int argc, char *argv[]){
 		tree->GetEntry(i);
 		for(tof_iter = vandle_tof.begin(), loc_iter = vandle_loc.begin(); 
 		  tof_iter != vandle_tof.end() && loc_iter != vandle_loc.end(); tof_iter++, loc_iter++){
-			hist2->Fill(*tof_iter, *loc_iter);
+			real_velocity = RealDistance(RADIUS, DELTA, angles[(*loc_iter)]) / (*tof_iter);
+			fake_TOF = RADIUS / real_velocity;
+			hist2->Fill(fake_TOF, *loc_iter);
 		}
 	}
 	std::cout << " Filled " << hist2->GetEntries() << " entries into 2D histogram\n";
@@ -155,11 +211,27 @@ int main(int argc, char *argv[]){
 	can2D->cd();
 	hist2->Draw("COLZ");
 	can2D->Update();
-	can1D->cd();
+	//can1D->cd();
+	can2D->WaitPrimitive();
 
 	// Find bar maxima
 	unsigned int entries;
 	for(unsigned int i = 0; i < 42; i++){
+		std::cout << " Working on bar number " << i << "... ";
+		if(MakeSliceX(hist2, (double)i, (double)i, entries, hist_contents)){
+			std::cout << "(" << entries << " entries)\n";
+			max_y = -10000.0;
+			for(std::vector<BinContent>::iterator iter = hist_contents.begin(); iter != hist_contents.end(); iter++){
+				if(iter->content > max_y){ 
+					max_y = iter->content;
+					max_x = iter->center;
+				}
+			}
+			output << i << "\t" << max_x << std::endl;
+		}
+		else{ std::cout << "failed!\n"; }
+	}
+	/*for(unsigned int i = 0; i < 42; i++){
 		std::cout << " Working on bar number " << i << "... ";
 		if(MakeSliceX(hist2, hist1, (double)i, (double)i, entries)){
 			std::cout << "(" << entries << " entries)\n";
@@ -174,13 +246,12 @@ int main(int argc, char *argv[]){
 			
 			marker = (TMarker*)can1D->WaitPrimitive("TMarker");
 			max_x = marker->GetX();
-			max_y = marker->GetY();
 			marker->Delete();
 			
 			output << i << "\t" << max_x << std::endl;
 		}
 		else{ std::cout << "failed!\n"; }
-	}
+	}*/
 	
 	// Cleanup
 	can2D->Close();
@@ -189,6 +260,8 @@ int main(int argc, char *argv[]){
 	delete file;
 	
 	output.close();
+	
+	rootapp->Delete();
 	
 	return 0;
 }

@@ -40,7 +40,7 @@ int main(int argc, char* argv[]){
 	std::vector<int> wave;
 	std::vector<double> energy;
 	unsigned int mult;
-	unsigned int wave_size;
+	unsigned int wave_size = 0;
 		
 	TFile *file = new TFile(argv[1], "READ");
 	if(!file->IsOpen()){
@@ -120,6 +120,8 @@ int main(int argc, char* argv[]){
 	can->Close();
 	file->Close();
 	graph->Delete();
+	
+	rootapp->Delete();
 	
 	return 0;
 }

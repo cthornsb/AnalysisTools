@@ -135,6 +135,8 @@ int main(int argc, char* argv[]){
 	
 	delete file;
 	
+	rootapp->Delete();
+	
 	return 0;
 }
 

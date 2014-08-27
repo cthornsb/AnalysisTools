@@ -81,10 +81,6 @@ int main(int argc, char *argv[]){
 	}
 	tree->SetMakeClass(1);
 	
-	double shifts[42];
-	double bar, shift, flash;
-	unsigned short num_shifts = 0;
-
 	std::ofstream output(argv[3]);
 	if(!output.good()){ 
 		if(argc > 3){ std::cout << " Error! Failed to load output file '" << argv[3] << "'\n"; }
@@ -93,12 +89,6 @@ int main(int argc, char *argv[]){
 		return 1; 
 	}
 
-	double parameters[3]; 
-	parameters[0] = 0.0;
-	parameters[1] = 0.0;
-	parameters[2] = 0.0;
-
-	double maximum;
 	double max_x, max_y;
 
 	std::vector<BinContent> hist_contents;
@@ -177,6 +167,8 @@ int main(int argc, char *argv[]){
 	delete file;
 	
 	output.close();
+	
+	rootapp->Delete();
 	
 	return 0;
 }
