@@ -4,6 +4,7 @@
 #include "TObject.h"
 
 #include <vector>
+#include <string>
 
 ///////////////////////////////////////////////////////////
 // TriggerProcessor
@@ -21,6 +22,8 @@ class TriggerStructure : public TObject {
     // Zero the data structure
     void Zero();
     
+    TriggerStructure& operator=(TriggerStructure*);
+    
     ClassDefNV(TriggerStructure, 1); // Trigger
 };
 
@@ -33,6 +36,8 @@ class TriggerWaveform : public TObject {
 	
 	// Zero the waveform
 	void Zero();
+
+    TriggerWaveform& operator=(TriggerWaveform*);
 	
 	ClassDefNV(TriggerWaveform, 1); // TriggerWaveform
 };
@@ -52,6 +57,8 @@ class RuntimeStructure : public TObject {
 
     // Zero the data structure    
     void Zero();
+
+    RuntimeStructure& operator=(RuntimeStructure*);
     
     ClassDefNV(RuntimeStructure, 1); // Runtime
 };
@@ -65,6 +72,8 @@ class RuntimeWaveform : public TObject {
 	
 	// Zero the waveform
 	void Zero();
+
+    RuntimeWaveform& operator=(RuntimeWaveform*);
 	
 	ClassDefNV(RuntimeWaveform, 1); // RuntimeWaveform
 };	
@@ -86,6 +95,8 @@ class LiquidStructure : public TObject {
     
     // Zero the data structure    
     void Zero();
+
+    LiquidStructure& operator=(LiquidStructure*);
         
     ClassDefNV(LiquidStructure, 1); // Liquid
 };
@@ -99,6 +110,8 @@ class LiquidWaveform : public TObject {
 	
 	// Zero the waveform
 	void Zero();
+
+	LiquidWaveform& operator=(LiquidWaveform*);
 	
 	ClassDefNV(LiquidWaveform, 1); // LiquidWaveform
 };
@@ -121,6 +134,8 @@ class VandleStructure : public TObject {
     
     // Zero the data structure
     void Zero();
+
+    VandleStructure& operator=(VandleStructure*);
     
     ClassDefNV(VandleStructure, 1); // Vandle
 };
@@ -134,6 +149,8 @@ class VandleWaveform : public TObject {
 	
 	// Zero the waveform
 	void Zero();
+
+    VandleWaveform& operator=(VandleWaveform*);
 	
 	ClassDefNV(VandleWaveform, 1); // VandleWaveform
 };

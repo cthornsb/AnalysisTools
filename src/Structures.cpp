@@ -1,4 +1,5 @@
 #include "Structures.h"
+#include <iostream>
 
 ///////////////////////////////////////////////////////////
 // TriggerProcessor
@@ -16,6 +17,15 @@ void TriggerStructure::Zero(){
 	trigger_mult = 0;
 }
 
+TriggerStructure& TriggerStructure::operator=(TriggerStructure *other){
+	if(other->trigger_mult > 0){
+		trigger_energy = other->trigger_energy;
+		trigger_mult = other->trigger_mult;
+	}
+	else{ Zero(); }
+	return *this;
+}
+
 void TriggerWaveform::Append(std::vector<int> &pulse){ // trigger_wave.size()/trigger_mult will give pulse size
 	for(std::vector<int>::iterator iter = pulse.begin(); iter != pulse.end(); iter++){
 		trigger_wave.push_back((*iter));
@@ -24,6 +34,11 @@ void TriggerWaveform::Append(std::vector<int> &pulse){ // trigger_wave.size()/tr
 
 void TriggerWaveform::Zero(){
 	if(trigger_wave.size() > 0){ trigger_wave.clear(); }
+}
+
+TriggerWaveform& TriggerWaveform::operator=(TriggerWaveform *other){
+	trigger_wave = other->trigger_wave;
+	return *this;
 }
 
 ///////////////////////////////////////////////////////////
@@ -42,6 +57,15 @@ void RuntimeStructure::Zero(){
 	rtime_mult = 0;
 }
 
+RuntimeStructure& RuntimeStructure::operator=(RuntimeStructure *other){
+	if(other->rtime_mult > 0){
+		rtime_energy = other->rtime_energy;
+		rtime_mult = other->rtime_mult;
+	}
+	else{ Zero(); }
+	return *this;
+}
+
 void RuntimeWaveform::Append(std::vector<int> &pulse){ // rtime_wave.size()/rtime_mult will give pulse size
 	for(std::vector<int>::iterator iter = pulse.begin(); iter != pulse.end(); iter++){
 		rtime_wave.push_back((*iter));
@@ -50,6 +74,11 @@ void RuntimeWaveform::Append(std::vector<int> &pulse){ // rtime_wave.size()/rtim
 
 void RuntimeWaveform::Zero(){
 	if(rtime_wave.size() > 0){ rtime_wave.clear(); }
+}
+
+RuntimeWaveform& RuntimeWaveform::operator=(RuntimeWaveform *other){
+	rtime_wave = other->rtime_wave;
+	return *this;
 }
 
 ///////////////////////////////////////////////////////////
@@ -75,6 +104,18 @@ void LiquidStructure::Zero(){
 	liquid_mult = 0;
 }
 
+LiquidStructure& LiquidStructure::operator=(LiquidStructure *other){
+	if(other->liquid_mult > 0){
+		liquid_loc = other->liquid_loc;
+		liquid_TOF = other->liquid_TOF;
+		liquid_tqdc = other->liquid_tqdc;
+		start_tqdc = other->start_tqdc;
+		liquid_mult = other->liquid_mult;
+	}
+	else{ Zero(); }
+	return *this;
+}
+
 void LiquidWaveform::Append(std::vector<int> &pulse){ // liquid_wave.size()/liquid_mult will give pulse size
 	for(std::vector<int>::iterator iter = pulse.begin(); iter != pulse.end(); iter++){
 		liquid_wave.push_back((*iter));
@@ -83,6 +124,11 @@ void LiquidWaveform::Append(std::vector<int> &pulse){ // liquid_wave.size()/liqu
 
 void LiquidWaveform::Zero(){
 	if(liquid_wave.size() > 0){ liquid_wave.clear(); }
+}
+
+LiquidWaveform& LiquidWaveform::operator=(LiquidWaveform *other){
+	liquid_wave = other->liquid_wave;
+	return *this;
 }
 
 ///////////////////////////////////////////////////////////
@@ -120,6 +166,24 @@ void VandleStructure::Zero(){
 	vandle_mult = 0;
 }
 
+VandleStructure& VandleStructure::operator=(VandleStructure *other){
+	if(other->vandle_mult > 0){
+		vandle_loc = other->vandle_loc;
+		vandle_TOF = other->vandle_TOF;
+		vandle_lqdc = other->vandle_lqdc;
+		vandle_rqdc = other->vandle_rqdc;
+		vandle_tsLow = other->vandle_tsLow;
+		vandle_tsHigh = other->vandle_tsHigh;
+		vandle_lMaxVal = other->vandle_lMaxVal;
+		vandle_rMaxVal = other->vandle_rMaxVal;
+		vandle_qdc = other->vandle_qdc;
+		vandle_energy = other->vandle_energy;
+		vandle_mult = other->vandle_mult;
+	}
+	else{ Zero(); }
+	return *this;
+}
+
 void VandleWaveform::Append(std::vector<int> &l_pulse, std::vector<int> &r_pulse){ // left(right)_wave.size()/vandle_mult will give pulse size
 	for(std::vector<int>::iterator iter1 = l_pulse.begin(), iter2 = r_pulse.begin(); iter1 != l_pulse.end() && iter2 != r_pulse.end(); iter1++, iter2++){
 		left_wave.push_back((*iter1));
@@ -130,4 +194,10 @@ void VandleWaveform::Append(std::vector<int> &l_pulse, std::vector<int> &r_pulse
 void VandleWaveform::Zero(){
 	if(left_wave.size() > 0){ left_wave.clear(); }
 	if(right_wave.size() > 0){ right_wave.clear(); }
+}
+
+VandleWaveform& VandleWaveform::operator=(VandleWaveform *other){
+	left_wave = other->left_wave;
+	right_wave = other->right_wave;
+	return *this;
 }

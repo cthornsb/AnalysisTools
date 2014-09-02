@@ -108,10 +108,13 @@ int main(int argc, char* argv[]){
 	unsigned short num_shifts = 0;
 
 	// Branch variables
-	VandleStructure v_structure;
 	TriggerStructure t_structure;
+	TriggerWaveform t_waveform; 
+	VandleStructure v_structure;
+	
 	std::vector<double> input_TOF, input_qdc, input_energy;
 	std::vector<unsigned int> input_loc;
+	std::vector<int> input_wave;
 
 	TFile *file = new TFile(argv[1], "READ");
 	if(file->IsZombie()){
@@ -127,11 +130,12 @@ int main(int argc, char* argv[]){
 	tree->SetMakeClass(1);
 	
 	TBranch *b_TOF, *b_qdc, *b_loc; // Vandle Branches
-	TBranch *b_energy; // Trigger Branches
+	TBranch *b_energy, *b_wave; // Trigger Branches
 	tree->SetBranchAddress("vandle_TOF", &input_TOF, &b_TOF);
 	tree->SetBranchAddress("vandle_qdc", &input_qdc, &b_qdc);
 	tree->SetBranchAddress("vandle_loc", &input_loc, &b_loc);
 	tree->SetBranchAddress("trigger_energy", &input_energy, &b_energy);
+	tree->SetBranchAddress("trigger_wave", &input_wave, &b_wave);
 	
 	if(!b_TOF){
 		std::cout << " Note: Failed to load the input branch 'vandle_TOF'\n";
@@ -186,7 +190,8 @@ int main(int argc, char* argv[]){
 
 		vandle_tree = new TTree(argv[2], "Analysis tree");
 		vandle_tree->Branch("Trigger", &t_structure);
-		vandle_tree->Branch("Vandle", &v_structure);		
+		vandle_tree->Branch("Trigger", &t_waveform);
+		vandle_tree->Branch("Vandle", &v_structure);
 	}
 
 	// Canvas
@@ -300,12 +305,16 @@ int main(int argc, char* argv[]){
 			count3 += input_energy.size();
 			if(valid_event){
 				for(iter4 = input_energy.begin(); iter4 != input_energy.end(); iter4++){
-					t_structure.Append((*iter4));
-					count4++;
+					if(*iter4 > 0.0 && *iter4 <= 1250.0){
+						t_structure.Append((*iter4));
+						t_waveform.Append(input_wave);
+						count4++;
+					}
 				}			
-				vandle_tree->Fill();
+				if(t_structure.trigger_energy.size() > 0){ vandle_tree->Fill(); } // Only fill the tree if there is a trigger within the energy gate
 				v_structure.Zero();
 				t_structure.Zero();
+				t_waveform.Zero();
 			}
 		}
 
