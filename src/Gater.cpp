@@ -24,6 +24,7 @@
 #include <cmath>
 
 #include "Structures.h"
+#include "Loader.h"
 
 #define NEUTRON_MASS 939.565 // Mev/c^2
 #define VANDLE_T_RES 1.0 // ns
@@ -107,62 +108,19 @@ int main(int argc, char* argv[]){
 	double bar, shift, flash;
 	unsigned short num_shifts = 0;
 
-	// Branch variables
-	TriggerStructure t_structure;
-	TriggerWaveform t_waveform; 
-	VandleStructure v_structure;
+	// Declare the PixieLoader object
+	// This object will load the file and all the branches
+	PixieLoader loader(argv[1], argv[2]);
 	
-	std::vector<double> input_TOF, input_qdc, input_energy;
-	std::vector<unsigned int> input_loc;
-	std::vector<int> input_wave;
-
-	TFile *file = new TFile(argv[1], "READ");
-	if(file->IsZombie()){
-		std::cout << " Failed to load the input file '" << argv[1] << "'\n";
-		return 1;
-	}
-	TTree *tree = (TTree*)file->Get(argv[2]);
-	if(!tree){
-		std::cout << " Failed to load the input tree '" << argv[2] << "'\n";
-		file->Close();
-		return 1;
-	}
-	tree->SetMakeClass(1);
+	// Get pointers to the data stored inside PixieLoader
+	TriggerStructure *trig_structure = loader.GetTrigger();
+	TriggerWaveform *trig_waveform = loader.GetTriggerWave();
+	VandleStructure *van_structure = loader.GetVandle();
 	
-	TBranch *b_TOF, *b_qdc, *b_loc; // Vandle Branches
-	TBranch *b_energy, *b_wave; // Trigger Branches
-	tree->SetBranchAddress("vandle_TOF", &input_TOF, &b_TOF);
-	tree->SetBranchAddress("vandle_qdc", &input_qdc, &b_qdc);
-	tree->SetBranchAddress("vandle_loc", &input_loc, &b_loc);
-	tree->SetBranchAddress("trigger_energy", &input_energy, &b_energy);
-	tree->SetBranchAddress("trigger_wave", &input_wave, &b_wave);
-	
-	if(!b_TOF){
-		std::cout << " Note: Failed to load the input branch 'vandle_TOF'\n";
-		file->Close();
-		return 1;
-	}
-	if(!b_qdc){
-		std::cout << " Note: Failed to load the input branch 'vandle_qdc'\n";
-		file->Close();
-		return 1;
-	}
-	if(!b_loc){
-		std::cout << " Note: Failed to load the input branch 'vandle_loc'\n";
-		file->Close();
-		return 1;
-	}
-	if(!b_energy){
-		std::cout << " Note: Failed to load the input branch 'trigger_energy'\n";
-		file->Close();
-		return 1;
-	}
-
 	std::ifstream input;
 	input.open(argv[3]);
 	if(!input.good()){ 
 		std::cout << " Error! Failed to load time shift file '" << argv[3] << "'\n";
-		file->Close();
 		return 1; 
 	}
 	while(true){
@@ -187,11 +145,9 @@ int main(int argc, char* argv[]){
 	if(!debug){
 		std::cout << " Opening output file 'gater.root'\n";
 		out_file = new TFile("gater.root", "RECREATE");
-
 		vandle_tree = new TTree(argv[2], "Analysis tree");
-		vandle_tree->Branch("Trigger", &t_structure);
-		vandle_tree->Branch("Trigger", &t_waveform);
-		vandle_tree->Branch("Vandle", &v_structure);
+		loader.SetOutputBranches("11000011"); // Only copy Trigger and Vandle data
+		loader.SetTree(vandle_tree);
 	}
 
 	// Canvas
@@ -205,7 +161,7 @@ int main(int argc, char* argv[]){
 	hist->SetStats(false);
 
 	std::vector<double>::iterator iter1, iter2;
-	std::vector<unsigned int>::iterator iter3;
+	std::vector<int>::iterator iter3;
 	std::vector<double>::iterator iter4;
 	unsigned int count1 = 0, count2 = 0;
 	unsigned int count3 = 0, count4 = 0;
@@ -215,7 +171,7 @@ int main(int argc, char* argv[]){
 	clock_t cpu_time = clock();
 	time_t real_time;
 	
-	unsigned int num_entries = tree->GetEntries();
+	unsigned int num_entries = loader.GetEntries();
 		
 	TGraph *graph1 = NULL;
 	TGraph *graph2 = NULL;
@@ -238,7 +194,7 @@ int main(int argc, char* argv[]){
 
 		// Fill the histogram to cut on
 		for(unsigned int i = 0; i < num_entries; i++){
-			tree->GetEntry(i);
+			loader.GetEntry(i);
 			if(i % 1000000 == 0){ // Timing stuff
 				time_holder1 = (long)(clock()-cpu_time);
 				time_holder2 = difftime(time(NULL), real_time);
@@ -250,8 +206,8 @@ int main(int argc, char* argv[]){
 					std::cout << ((float)(num_entries-i)/1000000)*time_holder2 << " s\n";
 				}
 			}
-			for(iter1 = input_TOF.begin(), iter2 = input_qdc.begin(), iter3 = input_loc.begin();
-			  iter1 != input_TOF.end() && iter2 != input_qdc.end() && iter3 != input_loc.end(); iter1++, iter2++, iter3++){
+			for(iter1 = van_structure->vandle_TOF.begin(), iter2 = van_structure->vandle_qdc.begin(), iter3 = van_structure->vandle_loc.begin();
+			  iter1 != van_structure->vandle_TOF.end() && iter2 != van_structure->vandle_qdc.end() && iter3 != van_structure->vandle_loc.end(); iter1++, iter2++, iter3++){
 				hist->Fill((*iter1) - shifts[(*iter3)], (*iter2));
 				count1++;
 			}
@@ -278,7 +234,7 @@ int main(int argc, char* argv[]){
 		double qdc_limit;
 		bool valid_event;
 		for(unsigned int i = 0; i < num_entries; i++){
-			tree->GetEntry(i);
+			loader.GetEntry(i);
 			valid_event = false;
 			if(i % 1000000 == 0){ // Timing stuff
 				time_holder1 = (long)(clock()-cpu_time);
@@ -291,30 +247,28 @@ int main(int argc, char* argv[]){
 					std::cout << ((float)(num_entries-i)/1000000)*time_holder2 << " s\n";
 				}
 			}
-			for(iter1 = input_TOF.begin(), iter2 = input_qdc.begin(), iter3 = input_loc.begin(); 
-			  iter1 != input_TOF.end() && iter2 != input_qdc.end() && iter3 != input_loc.end(); iter1++, iter2++, iter3++){
+			for(iter1 = van_structure->vandle_TOF.begin(), iter2 = van_structure->vandle_qdc.begin(), iter3 = van_structure->vandle_loc.begin();
+			  iter1 != van_structure->vandle_TOF.end() && iter2 != van_structure->vandle_qdc.end() && iter3 != van_structure->vandle_loc.end(); iter1++, iter2++, iter3++){
 			  	shift = *iter1 - shifts[*iter3];
 			  	if(limit.Interpolate(shift, qdc_limit) && (*iter2) <= qdc_limit){
-			  		v_structure.Append((*iter3), (*iter1) - shifts[(*iter3)], 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, (*iter2), 0.0);
+			  		loader.GetVandleOut()->Append((*iter3), (*iter1) - shifts[(*iter3)], 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, (*iter2), 0.0);
 					hist->Fill((*iter1) - shifts[(*iter3)], (*iter2));
 					if(!valid_event){ valid_event = true; }
 					count2++;
 				}
 				count1++;
 			}
-			count3 += input_energy.size();
+			count3 += trig_structure->trigger_energy.size();
 			if(valid_event){
-				for(iter4 = input_energy.begin(); iter4 != input_energy.end(); iter4++){
+				for(iter4 = trig_structure->trigger_energy.begin(); iter4 != trig_structure->trigger_energy.end(); iter4++){
 					if(*iter4 > 0.0 && *iter4 <= 1250.0){
-						t_structure.Append((*iter4));
-						t_waveform.Append(input_wave);
+						loader.GetTriggerOut()->Append((*iter4));
+						loader.GetTriggerWaveOut()->Append(trig_waveform->trigger_wave);
 						count4++;
 					}
 				}			
-				if(t_structure.trigger_energy.size() > 0){ vandle_tree->Fill(); } // Only fill the tree if there is a trigger within the energy gate
-				v_structure.Zero();
-				t_structure.Zero();
-				t_waveform.Zero();
+				if(loader.GetTriggerOut()->trigger_mult > 0){ vandle_tree->Fill(); } // Only fill the tree if there is a trigger within the energy gate
+				loader.Zero();
 			}
 		}
 
@@ -337,9 +291,7 @@ int main(int argc, char* argv[]){
 		graph2->Delete();
 	}
 	
-	can->Close();
-	file->Close();
-	
+	can->Close();	
 	rootapp->Delete();
 	
 	return 0;

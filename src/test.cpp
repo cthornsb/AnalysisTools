@@ -16,8 +16,6 @@ int main(){
 	loader.SetOutputBranches("11000000");
 	loader.SetTree(test_tree);
 	
-	std::vector<double>::iterator iter1;
-	std::vector<int>::iterator iter2;
 	std::cout << " Plotting " << loader.GetEntries() << " entries\n";
 	for(unsigned int i = 0; i < loader.GetEntries(); i++){
 		loader.FillEntry(i);

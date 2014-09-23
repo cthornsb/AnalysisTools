@@ -94,6 +94,9 @@ class PixieLoader{
 	// Turn output branches on/off
 	void SetOutputBranches(std::string);
 	
+	// Zero all output branches
+	void Zero();
+	
 	void Test();
 };
 

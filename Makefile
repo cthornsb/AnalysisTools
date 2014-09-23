@@ -1,6 +1,7 @@
 CC = g++
 
-CFLAGS = -g -fPIC -Wall -O3 `root-config --cflags --glibs` -Iinclude
+#CFLAGS = -g -fPIC -Wall -O3 `root-config --cflags --glibs` -Iinclude
+CFLAGS = -g -fPIC -O3 `root-config --cflags --glibs` -Iinclude
 LDLIBS = `root-config --libs`
 ROOT_INC = `root-config --incdir`
 
@@ -94,17 +95,17 @@ Stitcher: $(SOURCE_DIR)/Stitcher.cpp
 #	Compile Stitcher tool
 	$(CC) $(CFLAGS) $< -o $@
 	
-Gater: $(DICT_OBJ_DIR)/$(DICT_SOURCE).so $(ROOTOBJ) $(OBJ_DIR)/Gater.o
+Gater: $(DICT_OBJ_DIR)/$(DICT_SOURCE).so $(ROOTOBJ) $(OBJ_DIR)/Loader.o $(OBJ_DIR)/Gater.o
 #	Cfompile Gater tool
-	$(CC) $(OBJ_DIR)/$@.o $(ROOTOBJ) -L$(DICT_OBJ_DIR) $(SFLAGS) -o $@ $(LDLIBS)
+	$(CC) $(OBJ_DIR)/$@.o $(ROOTOBJ) $(OBJ_DIR)/Loader.o -L$(DICT_OBJ_DIR) $(SFLAGS) -o $@ $(LDLIBS)
 	
 Overlay: $(SOURCE_DIR)/Overlay.cpp
 #	Compile Stitcher tool
 	$(CC) $(CFLAGS) $< -o $@
 	
-test: $(DICT_OBJ_DIR)/$(DICT_SOURCE).so $(ROOTOBJ) $(OBJ_DIR)/Loader.o $(OBJ_DIR)/test.o
+Test: $(DICT_OBJ_DIR)/$(DICT_SOURCE).so $(ROOTOBJ) $(OBJ_DIR)/Loader.o $(OBJ_DIR)/Test.o
 #	Compile the test tool
-	$(CC) $(OBJ_DIR)/test.o $(ROOTOBJ) $(OBJ_DIR)/Loader.o -L$(DICT_OBJ_DIR) $(SFLAGS) -o $@ $(LDLIBS)
+	$(CC) $(OBJ_DIR)/Test.o $(ROOTOBJ) $(OBJ_DIR)/Analysis.o $(OBJ_DIR)/Loader.o -L$(DICT_OBJ_DIR) $(SFLAGS) -o $@ $(LDLIBS)
 
 #####################################################################
 

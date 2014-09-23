@@ -1,0 +1,26 @@
+# C++ obj files #
+#################
+*.o
+*.so
+
+# Plotter files #
+#################
+*.in
+
+# Root files #
+##############
+*.root
+RootDict.cpp
+RootDict.h
+
+# Executables #
+###############
+TimeAlign
+TimeAlignCf
+CheckAlign
+PulseViewer
+PulseAnalyzer
+Stitcher
+Gater
+Overlay
+Test

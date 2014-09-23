@@ -195,6 +195,17 @@ void PixieLoader::SetOutputBranches(std::string input){
 	std::cout << " PixieLoader: Activated " << count << " output branches\n";
 }
 
+void PixieLoader::Zero(){
+	out_trig_structure.Zero();
+	out_trig_waveform.Zero();
+	out_run_structure.Zero();
+	out_run_waveform.Zero();
+	out_liq_structure.Zero();
+	out_liq_waveform.Zero();
+	out_van_structure.Zero();
+	out_van_waveform.Zero();
+}
+
 void PixieLoader::Test(){
 	std::cout << " PixieLoader: TEST...\n";
 	if(switches[0]){ std::cout << "  Trigger: energy.size()=" << trig_structure->trigger_energy.size() << " mult=" << trig_structure->trigger_mult << std::endl; }
