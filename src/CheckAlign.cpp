@@ -16,12 +16,13 @@
 #include <iostream>
 #include <fstream>
 #include <sstream>
+#include <stdlib.h>
 
 // For compilation
 int main(int argc, char* argv[]){
-	if(argc < 4){ 
-		std::cout << " Error! Invalid number of arguments. Expected 3, received " << argc-1 << "\n";
-		std::cout << "  SYNTAX: ./CheckAlign {filename} {treename} {shift}\n";
+	if(argc < 9){ 
+		std::cout << " Error! Invalid number of arguments. Expected 8, received " << argc-1 << "\n";
+		std::cout << "  SYNTAX: ./TimeAlign {filename} {treename} {branchname} {shift_fname} {bins} {low} {high} {#det}\n";
 		return 1; 
 	}
 
@@ -42,19 +43,28 @@ int main(int argc, char* argv[]){
 		return 1;
 	}
 	tree->SetMakeClass(1);
+
+	int num_bins, num_dets;
+	float low_val, high_val;
+	num_bins = atol(argv[5]);
+	low_val = atof(argv[6]);
+	high_val = atof(argv[7]);
+	num_dets = atol(argv[8]);
+
+	std::cout << " Looking for " << num_dets << " detectors\n";
+	std::cout << " Using " << num_bins << " bins in range [" << low_val << ", " << high_val << "]\n";
 	
-	double shifts[42];
+	double shifts[num_dets];
 	double bar, shift, flash;
 	unsigned short num_shifts = 0;
 	
-	bool use_shifts = true;
-	if(strcmp(argv[3], "none") != 0){ // Load time shifts
-		std::ifstream input;
-		if(argc > 3){ input.open(argv[3]); }
-		else{ input.open("time_shifts.dat"); }
+	for(unsigned short i = 0; i < num_dets; i++){ shifts[i] = 0.0; }
+	
+	std::ifstream input;
+	if(strcmp(argv[4], "none") != 0){
+		input.open(argv[4]);
 		if(!input.good()){ 
-			if(argc > 3){ std::cout << " Error! Failed to load output file '" << argv[3] << "'\n"; }
-			else{ std::cout << " Error! Failed to load output file 'time_shifts.dat'\n"; }
+			std::cout << " Error! Failed to load input file '" << argv[4] << "'\n";
 			file->Close();
 			return 1; 
 		}
@@ -66,39 +76,40 @@ int main(int argc, char* argv[]){
 			}
 			else{ shifts[num_shifts] = flash + (shift - flash); }
 			num_shifts++;		
-		
-			if(num_shifts >= 42){ break; }
+	
+			if(num_shifts >= num_dets){ break; }
 			if(input.eof()){ break; }
 		}
 		input.close();
 		std::cout << " Finished loading time shifts\n";
 	}
-	else{ use_shifts = false; } // Not using the shifts
 
 	std::vector<double> vandle_tof;
 	std::vector<int> vandle_loc;
 	TBranch *b_vandle_tof, *b_vandle_loc;
 	
-	tree->SetBranchAddress("vandle_TOF", &vandle_tof, &b_vandle_tof);
-	tree->SetBranchAddress("vandle_loc", &vandle_loc, &b_vandle_loc);
+	std::stringstream stream; stream << argv[3];
+	tree->SetBranchAddress((stream.str() + "_TOF").c_str(), &vandle_tof, &b_vandle_tof);
+	tree->SetBranchAddress((stream.str() + "_loc").c_str(), &vandle_loc, &b_vandle_loc);
 
 	if(!b_vandle_tof){
-		std::cout << " Error! Failed to load input branch for vandle_TOF\n";
+		std::cout << " Error! Failed to load input branch for " << stream.str() + "_TOF\n";
 		file->Close();
 		return 1;
 	}
 	if(!b_vandle_loc){
-		std::cout << " Error! Failed to load input branch for vandle_loc\n";
+		std::cout << " Error! Failed to load input branch for " << stream.str() + "_loc\n";
 		file->Close();
 		return 1;
 	}
 
 	TCanvas *can2D = new TCanvas("can2D", "2D Canvas");
-	TH2D *hist2 = NULL;
-	if(use_shifts){ hist2 = new TH2D("hist2", "TOF vs. Vandle Bar", 500, -400-shifts[0], 100-shifts[0], 42, 0, 42); }
-	else{ hist2 = new TH2D("hist2", "TOF vs. Vandle Bar", 1000, -400, 100, 42, 0, 42); }
-	hist2->GetXaxis()->SetTitle("TOF (0.5 ns/bin)");
-	hist2->GetYaxis()->SetTitle("Vandle Bar Number");
+	TH2D *hist2 = new TH2D("hist2", "TOF vs. Detector", num_bins, low_val-shifts[0], high_val-shifts[0], num_dets, 0, num_dets);
+	TH1D *hist1 = new TH1D("hist1", "TOF", num_bins, low_val-shifts[0], high_val-shifts[0]);
+	hist1->GetXaxis()->SetTitle("TOF");
+	hist2->GetXaxis()->SetTitle("TOF");
+	hist2->GetYaxis()->SetTitle("Location");
+	hist1->SetStats(false);
 	hist2->SetStats(false);
 	
 	std::vector<double>::iterator tof_iter;
@@ -107,6 +118,8 @@ int main(int argc, char* argv[]){
 	// Fill the 2D histogram
 	std::cout << " Filling 2D histogram... This may take some time\n";
 	unsigned int num_entries = tree->GetEntries();
+	if(num_entries > 1000000){ num_entries = 1000000; } // 1 M events is quite sufficient
+	
 	unsigned int chunk = (unsigned int)(num_entries*0.1);
 	unsigned short percent = 0;
 	for(unsigned int i = 0; i < num_entries; i++){
@@ -117,15 +130,18 @@ int main(int argc, char* argv[]){
 		tree->GetEntry(i);
 		for(tof_iter = vandle_tof.begin(), loc_iter = vandle_loc.begin(); 
 		    tof_iter != vandle_tof.end() && loc_iter != vandle_loc.end(); tof_iter++, loc_iter++){
-			if(use_shifts){ hist2->Fill(*tof_iter - shifts[*loc_iter], *loc_iter); }
-			else{ hist2->Fill(*tof_iter, *loc_iter); }
+		    hist1->Fill(*tof_iter - shifts[*loc_iter]);
+			hist2->Fill(*tof_iter - shifts[*loc_iter], *loc_iter);
 		}
 	}
 	std::cout << " Filled " << hist2->GetEntries() << " entries into 2D histogram\n";
 
 	// Plot the 2D histogram
-	can2D->cd();
+	can2D->Divide(2);
+	can2D->cd(1);
 	hist2->Draw("COLZ");
+	can2D->cd(2);
+	hist1->Draw();
 	can2D->Update();
 	can2D->WaitPrimitive();
 	

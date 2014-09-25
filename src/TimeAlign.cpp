@@ -57,9 +57,9 @@ bool MakeSliceX(TH2D* hist2D, double low, double high, unsigned int &count, std:
 
 // For compilation
 int main(int argc, char *argv[]){
-	if(argc < 4){ 
-		std::cout << " Error! Invalid number of arguments. Expected 3, received " << argc-1 << "\n";
-		std::cout << "  SYNTAX: ./TimeAlign {filename} {treename} {shift}\n";
+	if(argc < 9){ 
+		std::cout << " Error! Invalid number of arguments. Expected 8, received " << argc-1 << "\n";
+		std::cout << "  SYNTAX: ./TimeAlign {filename} {treename} {branchname} {shift_fname} {bins} {low} {high} {#det}\n";
 		return 1; 
 	}
 
@@ -81,13 +81,22 @@ int main(int argc, char *argv[]){
 	}
 	tree->SetMakeClass(1);
 	
-	std::ofstream output(argv[3]);
+	std::ofstream output(argv[4]);
 	if(!output.good()){ 
-		if(argc > 3){ std::cout << " Error! Failed to load output file '" << argv[3] << "'\n"; }
-		else{ std::cout << " Error! Failed to load output file 'time_shifts.dat'\n"; }
+		std::cout << " Error! Failed to load output file '" << argv[4] << "'\n";
 		file->Close();
 		return 1; 
 	}
+
+	int num_bins, num_dets;
+	float low_val, high_val;
+	num_bins = atol(argv[5]);
+	low_val = atof(argv[6]);
+	high_val = atof(argv[7]);
+	num_dets = atol(argv[8]);
+
+	std::cout << " Looking for " << num_dets << " detectors\n";
+	std::cout << " Using " << num_bins << " bins in range [" << low_val << ", " << high_val << "]\n";
 
 	double max_x, max_y;
 
@@ -96,16 +105,17 @@ int main(int argc, char *argv[]){
 	std::vector<int> vandle_loc;
 	TBranch *b_vandle_tof, *b_vandle_loc;
 	
-	tree->SetBranchAddress("vandle_TOF", &vandle_tof, &b_vandle_tof);
-	tree->SetBranchAddress("vandle_loc", &vandle_loc, &b_vandle_loc);
+	std::stringstream stream; stream << argv[3];
+	tree->SetBranchAddress((stream.str() + "_TOF").c_str(), &vandle_tof, &b_vandle_tof);
+	tree->SetBranchAddress((stream.str() + "_loc").c_str(), &vandle_loc, &b_vandle_loc);
 
 	if(!b_vandle_tof){
-		std::cout << " Error! Failed to load input branch for vandle_TOF\n";
+		std::cout << " Error! Failed to load input branch for " << stream.str() + "_TOF\n";
 		file->Close();
 		return 1;
 	}
 	if(!b_vandle_loc){
-		std::cout << " Error! Failed to load input branch for vandle_loc\n";
+		std::cout << " Error! Failed to load input branch for " << stream.str() + "_loc\n";
 		file->Close();
 		return 1;
 	}
@@ -116,12 +126,16 @@ int main(int argc, char *argv[]){
 	std::vector<double>::iterator tof_iter;
 	std::vector<int>::iterator loc_iter;
 	
-	TH2D *hist2 = new TH2D("hist2", "TOF vs. Vandle Bar", 500, -400, 100, 42, 0, 42);
+	TH2D *hist2 = new TH2D("hist2", "TOF vs. Detector", num_bins, low_val, high_val, num_dets, 0, num_dets);
+	hist2->GetXaxis()->SetTitle("TOF");
+	hist2->GetYaxis()->SetTitle("Location");
 	hist2->SetStats(false);
 
 	// Fill the 2D histogram
 	std::cout << " Filling 2D histogram... This may take some time\n";
 	unsigned int num_entries = tree->GetEntries();
+	if(num_entries > 1000000){ num_entries = 1000000; } // 1 M events is quite sufficient
+	
 	unsigned int chunk = (unsigned int)(num_entries*0.1);
 	unsigned short percent = 0;
 	for(unsigned int i = 0; i < num_entries; i++){
@@ -141,11 +155,12 @@ int main(int argc, char *argv[]){
 	can2D->cd();
 	hist2->Draw("COLZ");
 	can2D->Update();
+	can2D->WaitPrimitive();
 
 	// Find bar maxima
 	unsigned int entries;
-	for(unsigned int i = 0; i < 42; i++){
-		std::cout << " Working on bar number " << i << "... ";
+	for(unsigned int i = 0; i < (unsigned int)num_dets; i++){
+		std::cout << " Working on detector number " << i << "... ";
 		if(MakeSliceX(hist2, (double)i, (double)i, entries, hist_contents)){
 			std::cout << "(" << entries << " entries)\n";
 			max_y = -10000.0;

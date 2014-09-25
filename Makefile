@@ -13,7 +13,7 @@ SOURCE_DIR = $(TOP_LEVEL)/src
 OBJ_DIR = $(TOP_LEVEL)/obj
 DICT_OBJ_DIR = $(DICT_DIR)/obj
 
-TOOLS = TimeAlign TimeAlignCf CheckAlign PulseViewer PulseAnalyzer Stitcher Gater Overlay
+TOOLS = TimeAlign TimeAlignCf CheckAlign PulseViewer PulseAnalyzer Stitcher Gater Overlay Averager
 
 # ROOT dictionary stuff
 DICT_SOURCE = RootDict
@@ -91,9 +91,9 @@ PulseAnalyzer: $(SOURCE_DIR)/PulseAnalyzer.cpp
 #	Compile PulseAnalyzer tool
 	$(CC) $(CFLAGS) $< -o $@
 	
-Stitcher: $(SOURCE_DIR)/Stitcher.cpp
+Stitcher: $(DICT_OBJ_DIR)/$(DICT_SOURCE).so $(ROOTOBJ) $(OBJ_DIR)/Loader.o $(OBJ_DIR)/Stitcher.o
 #	Compile Stitcher tool
-	$(CC) $(CFLAGS) $< -o $@
+	$(CC) $(OBJ_DIR)/Stitcher.o $(ROOTOBJ) $(OBJ_DIR)/Loader.o -L$(DICT_OBJ_DIR) $(SFLAGS) -o $@ $(LDLIBS)
 	
 Gater: $(DICT_OBJ_DIR)/$(DICT_SOURCE).so $(ROOTOBJ) $(OBJ_DIR)/Loader.o $(OBJ_DIR)/Gater.o
 #	Cfompile Gater tool
@@ -103,7 +103,11 @@ Overlay: $(SOURCE_DIR)/Overlay.cpp
 #	Compile Stitcher tool
 	$(CC) $(CFLAGS) $< -o $@
 	
-Test: $(DICT_OBJ_DIR)/$(DICT_SOURCE).so $(ROOTOBJ) $(OBJ_DIR)/Loader.o $(OBJ_DIR)/Test.o
+Averager: $(DICT_OBJ_DIR)/$(DICT_SOURCE).so $(ROOTOBJ) $(OBJ_DIR)/Loader.o $(OBJ_DIR)/Averager.o
+#	Compile the test tool
+	$(CC) $(OBJ_DIR)/Averager.o $(ROOTOBJ) $(OBJ_DIR)/Loader.o -L$(DICT_OBJ_DIR) $(SFLAGS) -o $@ $(LDLIBS)
+	
+Test: $(DICT_OBJ_DIR)/$(DICT_SOURCE).so $(ROOTOBJ) $(OBJ_DIR)/Analysis.o $(OBJ_DIR)/Loader.o $(OBJ_DIR)/Test.o
 #	Compile the test tool
 	$(CC) $(OBJ_DIR)/Test.o $(ROOTOBJ) $(OBJ_DIR)/Analysis.o $(OBJ_DIR)/Loader.o -L$(DICT_OBJ_DIR) $(SFLAGS) -o $@ $(LDLIBS)
 

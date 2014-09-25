@@ -187,9 +187,10 @@ int main(int argc, char* argv[]){
 	unsigned int count1 = 0, count2 = 0;
 	if(t2_is_loaded){ // Branches are from different trees
 		// Iterate through tree1
-		unsigned int num_entries;
-		if(tree1->GetEntries() <= tree2->GetEntries()){ num_entries = tree1->GetEntries(); }
-		else{ num_entries = tree2->GetEntries(); }
+		unsigned int num_entries = 1000000;
+		//unsigned int num_entries;
+		//if(tree1->GetEntries() <= tree2->GetEntries()){ num_entries = tree1->GetEntries(); }
+		//else{ num_entries = tree2->GetEntries(); }
 		std::cout << "  Working on tree '" << t1name.str() << "' with " << num_entries << " entries...\n";
 		for(unsigned int i = 0; i < num_entries; i++){
 			tree1->GetEntry(i);
@@ -201,7 +202,7 @@ int main(int argc, char* argv[]){
 		}
 
 		// Iterate through tree2
-		//num_entries = tree2->GetEntries();
+		num_entries = tree2->GetEntries();
 		std::cout << "  Working on tree '" << t2name.str() << "' with " << num_entries << " entries...\n";
 		for(unsigned int i = 0; i < num_entries; i++){
 			tree2->GetEntry(i);

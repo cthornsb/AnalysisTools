@@ -5,6 +5,9 @@
 #include <string>
 #include <vector>
 
+#include "TCanvas.h"
+#include "TGraph.h"
+
 struct peak{
 	unsigned int left, max, min, cfd;
 	double max_value, min_value;
@@ -44,9 +47,13 @@ private:
 	int i,j,k,l,m,n;	
 	int return_code	;
 	bool positive, negative;
-	bool debug;
+	bool debug, can_graph;
 	
 	peak first, second;
+	TCanvas *can;
+	TGraph *graph;
+	double *x_graph;
+	const double *x_val, *y_val;
 
 public:
 	PulseAnalysis();
@@ -65,7 +72,8 @@ public:
 	int Smooth(int, int, double);
 	int HPGe(double&);
 	
-	void SetPulseSize(unsigned int size_){ pulse_size = size_; }
+	void SetPulseSize(unsigned int);
+	
 	void ToggleDebug(){ 
 		if(debug){ debug = false; } 
 		else{ debug = true; }

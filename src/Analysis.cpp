@@ -18,6 +18,8 @@
  *
  */
 
+#define THRESHOLD 0.2 // The noise threshold for peak finding
+
 #include <iostream>
 #include <fstream>
 #include <iomanip>
@@ -25,6 +27,8 @@
 #include <cmath>
 
 #include "Analysis.h"
+
+#include "TGraph.h"
 
 /** Constructor  */
 PulseAnalysis::PulseAnalysis()
@@ -34,12 +38,25 @@ PulseAnalysis::PulseAnalysis()
 	full_size = 0;
 	pulse = NULL;
 	debug = false;
+
+	can = NULL;
+	graph = NULL;
+	x_graph = NULL;
+	x_val = NULL;
+	y_val = NULL;
+	can_graph = false;
 }
 
 /** Destructor  */
 PulseAnalysis::~PulseAnalysis()
 {
 	if(full_size > 0){ delete pulse; }
+	if(can_graph){
+		//if(can){ can->Close(); std::cout << "HERE!\n"; }
+		//delete x_graph; std::cout << "HERE!\n";
+		//delete x_val; std::cout << "HERE!\n";
+		//delete y_val;std::cout << "HERE!\n";
+	}
 }
 
 /** ----------------------------------------------------  
@@ -52,8 +69,8 @@ PulseAnalysis::~PulseAnalysis()
 */
 void PulseAnalysis::GetVersion()
 {
-	std::string  version   = "Pulse analysis 1.0"; 
-	std::string  revision  = "9/17/2013";
+	std::string  version   = "Pulse analysis 1.1 (CRT)"; 
+	std::string  revision  = "9/24/2014";
 	
 	std::cout << "Package: " << version << std::endl;
 	std::cout << "Revision: " << revision << std::endl;
@@ -151,10 +168,16 @@ int PulseAnalysis::OptimizePSD (int start, int stop, int lower, int upper, doubl
 */
 int PulseAnalysis::PSD_Integration (int method, double &paraL, double &paraS)
 {	
-	int start = first.left;
-	int stop = first.min;
+	int start = 10; //first.left;
+	int stop = 50; //first.min;
 	int offset = 5;
+
+	/*i = first.max; // i is the max bin
+	j = first.max; // j is equal to l
+	k = first.cfd; // k is the 50% cfd
+	l = first.max; // l is the max bin*/
 	
+	/*// I didn't write this, don't blame me
 	j = 0;
 	for (i = 0; i < pulse_size; i++)
 	{
@@ -164,43 +187,33 @@ int PulseAnalysis::PSD_Integration (int method, double &paraL, double &paraS)
 	// Constant fraction discrimination (CFD) at 50% of amplitude
 	
 	j = l;
-	for(i = j - 50; i < j; i++)
+	for(i = first.left; i < first.max; i++)
 	{
 		if(pulse[i] < (pulse[l])*0.5) {k = i;}
-	}
+	}*/
 	
-	x = ((0.5*(pulse[l]) - pulse[k - 1])/((pulse[k + 1] 
-			- pulse[k - 1])/3))+ ((double)k - 1);
+	/*x = ((0.5*(pulse[l]) - pulse[k - 1])/((pulse[k + 1] - pulse[k - 1])/3))+ ((double)k - 1);*/
 	
+	//first.cfd = k;
 	
-	
-	if((k - start) > 0 && (k + start) < pulse_size) {
+	integralS = 0.0; integralL = 0.0;
+	if((first.cfd - start) > 0 && (first.cfd + stop) < pulse_size) {
 			// Initialization
-			integralS = 0; integralL = 0;
-			
-			// Begin integration using trapezoidal rule 
-			if (method == 1) {
-				for (i = (k - start); i < (k + stop); i++) {
-			
+			if (method == 0) { // Begin integration using trapezoidal rule 
+				for(i = first.cfd-start; i < first.cfd+stop; i++){
 					integralL += 0.5*(pulse[i-1] + pulse[i]);
-					
-					if (i > (k + offset)) { integralS += 0.5*(pulse[i-1] + pulse[i]);}
+					if (i > (first.cfd + offset)) { integralS += 0.5*(pulse[i-1] + pulse[i]);}
 				}
 			}
-			
-			// Begin integration using composite Simpson's rule
-			if (method == 2) {
-			
+			else if (method == 1) { // Begin integration using composite Simpson's rule (crashes)
 				sumL = 0;
 				sumS = 0;
-				integralL = pulse[k - start];
-				integralL = pulse[k + offset];
+				integralL = pulse[first.cfd - start];
+				integralS = pulse[first.cfd + offset];
 				
-				for (i = (k - start) + 1; i < (k + stop) - 2; i+=2) {
-			
+				for (i = (first.cfd - start) + 1; i < (first.cfd + stop) - 2; i+=2) {	
 					sumL += pulse[i];
-					
-					if (i > (k + offset)) { sumS += pulse[i];}
+					if (i > (first.cfd + offset)) { sumS += pulse[i];}
 				}
 				
 				integralL += 4*sumL;
@@ -208,48 +221,50 @@ int PulseAnalysis::PSD_Integration (int method, double &paraL, double &paraS)
 				
 				sumL = 0;
 				sumS = 0;
-				for (i = (k - start + 2); i < (k + stop) - 3; i+=2) {
-			
+				for (i = (first.cfd - start + 2); i < (first.cfd + stop) - 3; i+=2) {
 					sumL += pulse[i];
-					
-					if (i > (k + offset)) { sumS += pulse[i];}
+					if (i > (first.cfd + offset)) { sumS += pulse[i];}
 				}
 				
 				integralL += 2*sumL;
 				integralS += 2*sumS;
 				
-				integralL += pulse[k + stop];
-				integralS += pulse[k + stop];
+				integralL += pulse[first.cfd + stop];
+				integralS += pulse[first.cfd + stop];
 				
-				integralL = integralL/3;
-				integralS = integralS/3;
+				integralL = integralL/3.0;
+				integralS = integralS/3.0;
 			}
-			
-			// Begin integration using rectangular method 
-			if (method == 3) {
-				for (i = (k - start); i < (k + stop); i++) {
-			
+			else if (method == 2) { // Begin integration using rectangular method 
+				for(i = first.cfd-start; i < first.cfd+stop; i++){
 					integralL += pulse[i];
-					
-					if (i > (k + offset)) { integralS += pulse[i];}
-					//if (i > (k - start) && i <= (k + offset)) { integralS += pulse[i];}
-				}
-				
-				// Adjust for error due to array indexing (i.e. rounding)
-				if (x < k + offset)
-				{
-					//integralS =+ ((pulse[k + offset] - pulse[k + offset-1])*x*0.5) + ((x - (double)(k + offset))*pulse[k + offset-1]); 
-				}
-				
+					if (i > (first.cfd + offset)) { integralS += pulse[i];}
+				}			
 			}
 			
-	} else {return -1;}
+	} 
+	else{ return -1; }
 	
-	if (integralS != 0) {
-		paraL = integralL;
-		paraS = integralS;
-		return 0;
-	} else { return -1;}
+	paraL = integralL;
+	paraS = integralS;
+	if(debug){ std::cout << "Results: method = " << method << ", paraL = " << paraL << ", paraS = " << paraS << "\n\n"; }
+	/*if(paraL == paraS || paraS == 0.0){ 
+		std::cout << "Peak: " << first.print() << std::endl;
+		std::cout << "Integration: start = " << first.cfd-start << ", stop = " << first.cfd+stop << ", sstart = " << first.cfd+offset << std::endl;
+		std::cout << "Results: method = " << method << ", paraL = " << paraL << ", paraS = " << paraS << "\n\n";
+		if(can_graph){
+			for(unsigned int i = 0; i < pulse_size; i++){
+				graph->SetPoint(i, x_graph[i], pulse[i]);
+			}
+	
+			graph->Draw();
+			can->Update();
+			can->WaitPrimitive();
+			//sleep(1);
+		}
+	}*/
+	if (integralS != 0.0) { return 0; } 
+	return -1;
 }
 
 /** ----------------------------------------------------  
@@ -740,8 +755,29 @@ int PulseAnalysis::HPGe(double &amplitude){
 	return 0;
 }
 
+void PulseAnalysis::SetPulseSize(unsigned int size_){ 
+	if(can_graph){ return; }
+	pulse_size = size_; 
+	
+	can = new TCanvas("canvas", "canvas");
+	can->cd();
+	
+	// Variables for TGraph
+	x_graph = new double[pulse_size];
+	x_val = new double[pulse_size];
+	y_val = new double[pulse_size];
+
+	graph = new TGraph(pulse_size, x_val, y_val);
+	for(unsigned int i = 0; i < pulse_size; i++){
+		x_graph[i] = i;
+	}
+	can_graph = true;
+}
+
+// Copy the input vector into an array of doubles for later processing
+// Return the number of entries in the array
 unsigned int PulseAnalysis::PreProcess(std::vector<int> &input){
-	// Copy the input vector into an array of doubles for later processing
+	
 	if(full_size > 0){ delete pulse; }
 	full_size = 0;
 	pulse = new double[input.size()];
@@ -753,6 +789,8 @@ unsigned int PulseAnalysis::PreProcess(std::vector<int> &input){
 	return full_size;
 }
 
+// Do baseline correction and peak finding
+// Return the number of peaks found in the window
 unsigned int PulseAnalysis::Process(unsigned int start, unsigned int stop){
 	if(full_size == 0 || !pulse){ return 0; }
 	
@@ -789,9 +827,9 @@ unsigned int PulseAnalysis::Process(unsigned int start, unsigned int stop){
 	bool found_peak = false;
 	unsigned short num_peaks = 0;
 	for(unsigned int i = start; i < stop-1; i++){
-		// Subtract background (10% of maximum)
-		back_sub_left = pulse[i] - 0.1*maximum;
-		back_sub_right = pulse[i+1] - 0.1*maximum;
+		// Subtract background (50% of maximum)
+		back_sub_left = pulse[i] - THRESHOLD*maximum;
+		back_sub_right = pulse[i+1] - THRESHOLD*maximum;
 		if(back_sub_left < 0.0){ back_sub_left = 0.0; }
 		if(back_sub_right < 0.0){ back_sub_right = 0.0; }
 		
@@ -848,9 +886,9 @@ unsigned int PulseAnalysis::Process(unsigned int start, unsigned int stop){
 		}
 	}
 
-	// Find 80% of the peak maximum
+	// Find 50% of the peak maximum
 	for(unsigned int i = first.left; i <= first.max; i++){
-		if(pulse[i] >= 0.8*first.max_value){
+		if(pulse[i] >= 0.5*first.max_value){
 			if(i > 0){ first.cfd = i-1; }
 			else{ first.cfd = i; }
 			break;
@@ -862,7 +900,7 @@ unsigned int PulseAnalysis::Process(unsigned int start, unsigned int stop){
 	if(debug){ 
 		std::cout << "Global: baseline = " << base_line << ", maximum_bin = " << maximum_bin;
 		std::cout << ", maximum = " << maximum << ", num_peaks = " << num_peaks << std::endl;
-		std::cout << "Peak: " << first.print() << std::endl << std::endl;
+		std::cout << "Peak: " << first.print() << std::endl;
 	}
 	
 	return num_peaks;

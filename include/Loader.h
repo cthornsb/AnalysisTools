@@ -25,8 +25,9 @@ bool LoadLinkDef(std::vector<std::string> &bnames_, const char* fname="../dict/L
 
 class PixieLoader{
   private:
-	bool file_open;
-	bool switches[8], outSwitches[8];
+	bool file_open, bad_file, check_branches;
+	bool branch_check[8], switches[8], outSwitches[8];
+	bool silence, is_set;
 	TFile *file;
 	TTree *tree, *outTree;
 	TBranch *branches[8];
@@ -76,19 +77,37 @@ class PixieLoader{
 	VandleWaveform* GetVandleWave(){ return van_waveform; }
 	VandleWaveform* GetVandleWaveOut(){ return &out_van_waveform; }
 	
+	// Turn verbose output on/off
+	void BeQuiet(bool state=true){ silence = state; }
+	
+	// Return true if an output tree has been set and false otherwise
+	bool IsSet(){ return is_set; }
+	
+	// Return true if the file is open and it has the correct format
+	bool IsLoaded(){ return (file_open && !bad_file); }
+	
+	// Return a pointer to the input file
+	TFile *GetFile(){ return file; }
+	
+	// Return a pointer to the input tree
+	TTree *GetTree(){ return tree; }
+	
 	// Get number of entries in input tree
-	long long GetEntries(){ return tree->GetEntries(); }
+	long long GetEntries(){ 
+		if(tree){ return tree->GetEntries(); }
+		else{ return 0; }
+	}
 	
 	// Get entry from input tree
 	bool GetEntry(long long entry);
 	
-	// Fill output tree
-	bool Fill();
+	// Fill output tree (if do_fill == true)
+	bool Fill(bool do_fill=true);
 	
-	// Get entry and fill output tree
-	bool FillEntry(long long entry);
+	// Get entry and fill output tree (if do_fill == true)
+	bool FillEntry(long long entry, bool do_fill=true);
 	
-	// Set branches on a new tree
+	// Set branches on a new output tree
 	bool SetTree(TTree*);
 	
 	// Turn output branches on/off
