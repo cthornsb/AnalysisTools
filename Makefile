@@ -72,41 +72,45 @@ $(DICT_DIR)/%.cpp: $(INCLUDE_DIR)/$(STRUCT_FILE).h $(DICT_DIR)/LinkDef.h
 #####################################################################
 
 TimeAlign: $(SOURCE_DIR)/TimeAlign.cpp
-#	Compile TimeAlign tool
+#	Compile time alignment tool
 	$(CC) $(CFLAGS) $< -o $@
 
-TimeAlignCf: $(SOURCE_DIR)/TimeAlignCf.cpp
-#	Compile TimeAlignCf tool
-	$(CC) $(CFLAGS) $< -o $@
-	
 CheckAlign: $(SOURCE_DIR)/CheckAlign.cpp
-#	Compile CheckAlign tool
+#	Compile time alignment check tool
 	$(CC) $(CFLAGS) $< -o $@
 
 PulseViewer: $(SOURCE_DIR)/PulseViewer.cpp
-#	Compile PulseViewer tool
+#	Compile pulse viewer tool
 	$(CC) $(CFLAGS) $< -o $@
 
 PulseAnalyzer: $(SOURCE_DIR)/PulseAnalyzer.cpp
-#	Compile PulseAnalyzer tool
+#	Compile pulse analyzer tool
 	$(CC) $(CFLAGS) $< -o $@
 	
 Stitcher: $(DICT_OBJ_DIR)/$(DICT_SOURCE).so $(ROOTOBJ) $(OBJ_DIR)/Loader.o $(OBJ_DIR)/Stitcher.o
-#	Compile Stitcher tool
+#	Compile the root file stitcher tool
 	$(CC) $(OBJ_DIR)/Stitcher.o $(ROOTOBJ) $(OBJ_DIR)/Loader.o -L$(DICT_OBJ_DIR) $(SFLAGS) -o $@ $(LDLIBS)
 	
 Gater: $(DICT_OBJ_DIR)/$(DICT_SOURCE).so $(ROOTOBJ) $(OBJ_DIR)/Loader.o $(OBJ_DIR)/Gater.o
-#	Cfompile Gater tool
+#	Compile vandle data gater tool
 	$(CC) $(OBJ_DIR)/$@.o $(ROOTOBJ) $(OBJ_DIR)/Loader.o -L$(DICT_OBJ_DIR) $(SFLAGS) -o $@ $(LDLIBS)
 	
 Overlay: $(SOURCE_DIR)/Overlay.cpp
-#	Compile Stitcher tool
+#	Compile root histogram overlay tool
 	$(CC) $(CFLAGS) $< -o $@
 	
 Averager: $(DICT_OBJ_DIR)/$(DICT_SOURCE).so $(ROOTOBJ) $(OBJ_DIR)/Loader.o $(OBJ_DIR)/Averager.o
-#	Compile the test tool
+#	Compile the pulse averager tool
 	$(CC) $(OBJ_DIR)/Averager.o $(ROOTOBJ) $(OBJ_DIR)/Loader.o -L$(DICT_OBJ_DIR) $(SFLAGS) -o $@ $(LDLIBS)
-	
+
+DiffTime: $(SOURCE_DIR)/DiffTime.cpp
+#	Compile the time difference tool
+	$(CC) $(CFLAGS) $< -o $@
+
+Qcalc: $(SOURCE_DIR)/Qcalc.cpp
+#	Compile beam Q calculator tool
+	$(CC) $(CFLAGS) $< -o $@
+
 Test: $(DICT_OBJ_DIR)/$(DICT_SOURCE).so $(ROOTOBJ) $(OBJ_DIR)/Analysis.o $(OBJ_DIR)/Loader.o $(OBJ_DIR)/Test.o
 #	Compile the test tool
 	$(CC) $(OBJ_DIR)/Test.o $(ROOTOBJ) $(OBJ_DIR)/Analysis.o $(OBJ_DIR)/Loader.o -L$(DICT_OBJ_DIR) $(SFLAGS) -o $@ $(LDLIBS)

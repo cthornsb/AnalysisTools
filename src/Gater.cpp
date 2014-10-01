@@ -2,7 +2,7 @@
 // C. Thornsberry
 // Aug. 26th, 2014
 // Gate neutron data on the TOF vs. QDC plot
-// SYNTAX: ./Gater {root_filename} {root_treename} {time_shift_filename} [debug]
+// SYNTAX: ./Gater {filename} {treename} {shift_fname} {#det}
 
 #include "TFile.h"
 #include "TTree.h"
@@ -27,13 +27,16 @@
 #include "Loader.h"
 
 #define NEUTRON_MASS 939.565 // Mev/c^2
-#define VANDLE_T_RES 1.0 // ns
-#define THICKNESS 3.0 // cm
-#define RADIUS 50.0 // cm
-#define C 3E10 // cm/s
+#define VANDLE_T_RES 1.0 // Time resolution for Vandle (ns)
+#define THICKNESS 3.0 // Thickness of Vandle bar (cm)
+#define RADIUS 50.0 // Distance from target to Vandle (cm)
+#define C 3E10 // Speed of light (cm/s)
 
-#define LEFT 16.2 // ns
-#define RIGHT 114.2 // ns
+#define LEFT 16.2 // Minimum allowed ToF (ns)
+#define RIGHT 114.2 // Maximum allowed ToF (ns)
+
+#define ES_LOW 0.0	// Minimum allowed end scintillator energy (arb.)
+#define ES_HIGH 1250.0 // Maximum allowed end scintillator energy (arb.)
 
 class LimitFunc{
   private:
@@ -84,9 +87,9 @@ double Func(double tof, double coeff){
 
 // For compilation
 int main(int argc, char* argv[]){
-	if(argc < 4){
-		std::cout << " Error! Invalid number of arguments. Expected 3, received " << argc-1 << "\n";
-		std::cout << "  SYNTAX: ./Gater {filename} {treename} {shift} [debug]\n";
+	if(argc < 5){
+		std::cout << " Error! Invalid number of arguments. Expected 4, received " << argc-1 << "\n";
+		std::cout << "  SYNTAX: ./Gater {filename} {treename} {shift_fname} {#det}\n";
 		return 1;
 	}
 
@@ -96,17 +99,24 @@ int main(int argc, char* argv[]){
 	gSystem->Load("libTree");
 		
 	bool debug = false;
-	if(argc > 4){
-		if(strcmp(argv[4], "debug") == 0){ 
+	if(argc > 5){
+		if(strcmp(argv[5], "debug") == 0){ 
 			debug = true; 
 			std::cout << " DEBUGGING...\n";
 		}
 	}
 
 	// Time shift variables
-	double shifts[42];
+	float low_val, high_val;
+	unsigned int num_dets = (unsigned)atol(argv[4]);
+
+	std::cout << " Looking for " << num_dets << " detectors\n";
+	
+	double shifts[num_dets];
 	double bar, shift, flash;
 	unsigned short num_shifts = 0;
+	
+	for(unsigned short i = 0; i < num_dets; i++){ shifts[i] = 0.0; }
 
 	// Declare the PixieLoader object
 	// This object will load the file and all the branches
@@ -120,7 +130,7 @@ int main(int argc, char* argv[]){
 	std::ifstream input;
 	input.open(argv[3]);
 	if(!input.good()){ 
-		std::cout << " Error! Failed to load time shift file '" << argv[3] << "'\n";
+		std::cout << " Error! Failed to load input file '" << argv[3] << "'\n";
 		return 1; 
 	}
 	while(true){
@@ -131,8 +141,8 @@ int main(int argc, char* argv[]){
 		}
 		else{ shifts[num_shifts] = flash + (shift - flash); }
 		num_shifts++;		
-		
-		if(num_shifts >= 42){ break; }
+
+		if(num_shifts >= num_dets){ break; }
 		if(input.eof()){ break; }
 	}
 	input.close();
@@ -146,7 +156,7 @@ int main(int argc, char* argv[]){
 		std::cout << " Opening output file 'gater.root'\n";
 		out_file = new TFile("gater.root", "RECREATE");
 		vandle_tree = new TTree(argv[2], "Analysis tree");
-		loader.SetOutputBranches("11000011"); // Only copy Trigger and Vandle data
+		loader.SetOutputBranches("11000010");
 		loader.SetTree(vandle_tree);
 	}
 
@@ -163,6 +173,7 @@ int main(int argc, char* argv[]){
 	std::vector<double>::iterator iter1, iter2;
 	std::vector<int>::iterator iter3;
 	std::vector<double>::iterator iter4;
+	unsigned int count0 = 0;
 	unsigned int count1 = 0, count2 = 0;
 	unsigned int count3 = 0, count4 = 0;
 	
@@ -175,9 +186,10 @@ int main(int argc, char* argv[]){
 		
 	TGraph *graph1 = NULL;
 	TGraph *graph2 = NULL;
-	double qdc_coeff = (NEUTRON_MASS*RADIUS*RADIUS/(2.0*C*C))*(1E18)*(1E3); // Coefficient for maximum neutron qdc (keV ns^2)
+	double qdc_coeff = (NEUTRON_MASS*RADIUS*RADIUS/(2.0*C*C))*(1E18)*(1E3); // Coefficient for maximum neutron qdc (keV/ns^2)
 	std::cout << " QDC Coeff = " << qdc_coeff << " keV/ns^2\n";
-	if(debug){	
+	if(debug){
+		if(num_entries > 1000000){ num_entries = 1000000; } // 1 M events is quite sufficient
 		std::cout << " Processing " << num_entries << " entries\n";
 		unsigned int num_points = (unsigned int)((RIGHT-LEFT)*2);
 		double dE, x[num_points], y1[num_points], y2[num_points];
@@ -195,17 +207,6 @@ int main(int argc, char* argv[]){
 		// Fill the histogram to cut on
 		for(unsigned int i = 0; i < num_entries; i++){
 			loader.GetEntry(i);
-			if(i % 1000000 == 0){ // Timing stuff
-				time_holder1 = (long)(clock()-cpu_time);
-				time_holder2 = difftime(time(NULL), real_time);
-				cpu_time = clock();
-				time(&real_time);
-				if(i != 0){ 
-					if(time_holder2 < 1){ time_holder2 = 1; } // Prevent zero time remaining
-					std::cout << " Entry no. " << i << ", CPU = " << ((float)time_holder1)/CLOCKS_PER_SEC << " s, REAL = " << time_holder2 << " s, remain = ";
-					std::cout << ((float)(num_entries-i)/1000000)*time_holder2 << " s\n";
-				}
-			}
 			for(iter1 = van_structure->vandle_TOF.begin(), iter2 = van_structure->vandle_qdc.begin(), iter3 = van_structure->vandle_loc.begin();
 			  iter1 != van_structure->vandle_TOF.end() && iter2 != van_structure->vandle_qdc.end() && iter3 != van_structure->vandle_loc.end(); iter1++, iter2++, iter3++){
 				hist->Fill((*iter1) - shifts[(*iter3)], (*iter2));
@@ -222,6 +223,7 @@ int main(int argc, char* argv[]){
 	else{		
 		std::cout << " Processing " << num_entries << " entries\n";
 		unsigned int num_points = (unsigned int)((RIGHT-LEFT)*2);
+		unsigned int position = 0;
 		LimitFunc limit(num_points);
 
 		double x;
@@ -247,33 +249,35 @@ int main(int argc, char* argv[]){
 					std::cout << ((float)(num_entries-i)/1000000)*time_holder2 << " s\n";
 				}
 			}
-			for(iter1 = van_structure->vandle_TOF.begin(), iter2 = van_structure->vandle_qdc.begin(), iter3 = van_structure->vandle_loc.begin();
-			  iter1 != van_structure->vandle_TOF.end() && iter2 != van_structure->vandle_qdc.end() && iter3 != van_structure->vandle_loc.end(); iter1++, iter2++, iter3++){
-			  	shift = *iter1 - shifts[*iter3];
-			  	if(limit.Interpolate(shift, qdc_limit) && (*iter2) <= qdc_limit){
-			  		loader.GetVandleOut()->Append((*iter3), (*iter1) - shifts[(*iter3)], 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, (*iter2), 0.0);
-					hist->Fill((*iter1) - shifts[(*iter3)], (*iter2));
-					if(!valid_event){ valid_event = true; }
-					count2++;
-				}
+			count0 += van_structure->vandle_TOF.size(); 
+			for(iter4 = trig_structure->trigger_energy.begin(); iter4 != trig_structure->trigger_energy.end(); iter4++){
 				count1++;
-			}
-			count3 += trig_structure->trigger_energy.size();
-			if(valid_event){
-				for(iter4 = trig_structure->trigger_energy.begin(); iter4 != trig_structure->trigger_energy.end(); iter4++){
-					if(*iter4 > 0.0 && *iter4 <= 1250.0){
-						loader.GetTriggerOut()->Append((*iter4));
-						loader.GetTriggerWaveOut()->Append(trig_waveform->trigger_wave);
-						count4++;
+				if(*iter4 > ES_LOW && *iter4 <= ES_HIGH){ // Valid recoil energy
+					count2++;
+					loader.Fill(false);
+					loader.GetVandleOut()->Zero();
+					for(iter1 = van_structure->vandle_TOF.begin(), iter2 = van_structure->vandle_qdc.begin(), iter3 = van_structure->vandle_loc.begin();
+					  iter1 != van_structure->vandle_TOF.end() && iter2 != van_structure->vandle_qdc.end() && iter3 != van_structure->vandle_loc.end(); iter1++, iter2++, iter3++){
+					  	count0++;
+					  	count3++;
+					  	shift = *iter1 - shifts[*iter3];
+					  	if(limit.Interpolate(shift, qdc_limit) && (*iter2) <= qdc_limit){
+							hist->Fill(shift, (*iter2));
+							if(!valid_event){ valid_event = true; }
+							loader.GetVandleOut()->Append((*iter3), shift, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, *iter2, 0.0);
+							count4++;
+						}
 					}
-				}			
-				if(loader.GetTriggerOut()->trigger_mult > 0){ vandle_tree->Fill(); } // Only fill the tree if there is a trigger within the energy gate
-				loader.Zero();
+					if(valid_event){ vandle_tree->Fill(); }
+					break;
+				}
 			}
 		}
 
-		std::cout << " Found " << count1 << " Vandle events and " << count2 << " inside the gate (" << 100.0*count2/count1 << "%)\n";
-		std::cout << " Found " << count3 << " Trigger events and " << count4 << " inside the gate (" << 100.0*count4/count3 << "%)\n";
+		std::cout << " Found " << count2 << " Trigger events within trigger gate (" << 100.0*count2/count1 << "%)\n";
+		std::cout << " Found " << count4 << " Vandle events within Vandle gate (" << 100.0*count4/count3 << "%)\n";
+		std::cout << " Total number of Vandle events: " << count0 << "\n";
+		std::cout << " Total number within both gates: " << count4 << " (" << 100.0*count4/count0 << "%)\n";
 		hist->Draw("COLZ");
 	}
 	

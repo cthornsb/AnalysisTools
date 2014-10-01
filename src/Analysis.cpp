@@ -172,10 +172,8 @@ int PulseAnalysis::PSD_Integration (int method, double &paraL, double &paraS)
 	int stop = 50; //first.min;
 	int offset = 5;
 
-	/*i = first.max; // i is the max bin
-	j = first.max; // j is equal to l
-	k = first.cfd; // k is the 50% cfd
-	l = first.max; // l is the max bin*/
+	// k is the 50% cfd
+	// l is the max bin
 	
 	/*// I didn't write this, don't blame me
 	j = 0;
@@ -193,8 +191,6 @@ int PulseAnalysis::PSD_Integration (int method, double &paraL, double &paraS)
 	}*/
 	
 	/*x = ((0.5*(pulse[l]) - pulse[k - 1])/((pulse[k + 1] - pulse[k - 1])/3))+ ((double)k - 1);*/
-	
-	//first.cfd = k;
 	
 	integralS = 0.0; integralL = 0.0;
 	if((first.cfd - start) > 0 && (first.cfd + stop) < pulse_size) {
@@ -247,7 +243,10 @@ int PulseAnalysis::PSD_Integration (int method, double &paraL, double &paraS)
 	
 	paraL = integralL;
 	paraS = integralS;
-	if(debug){ std::cout << "Results: method = " << method << ", paraL = " << paraL << ", paraS = " << paraS << "\n\n"; }
+	if(debug){ 
+		
+		std::cout << "Results: method = " << method << ", paraL = " << paraL << ", paraS = " << paraS << "\n\n"; 
+	}
 	/*if(paraL == paraS || paraS == 0.0){ 
 		std::cout << "Peak: " << first.print() << std::endl;
 		std::cout << "Integration: start = " << first.cfd-start << ", stop = " << first.cfd+stop << ", sstart = " << first.cfd+offset << std::endl;

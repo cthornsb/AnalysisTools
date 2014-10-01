@@ -2,7 +2,7 @@
 // C. Thornsberry
 // Aug. 26th, 2014
 // Check the time alignment for a run
-// SYNTAX: ./CheckAlign {root_filename} {root_treename} {time_shift_filename}
+// SYNTAX: ./CheckAlign {filename} {treename} {branchname} {shift_fname} {bins} {low} {high} {#det}
 
 #include "TSystem.h"
 #include "TApplication.h"
@@ -22,7 +22,7 @@
 int main(int argc, char* argv[]){
 	if(argc < 9){ 
 		std::cout << " Error! Invalid number of arguments. Expected 8, received " << argc-1 << "\n";
-		std::cout << "  SYNTAX: ./TimeAlign {filename} {treename} {branchname} {shift_fname} {bins} {low} {high} {#det}\n";
+		std::cout << "  SYNTAX: ./CheckAlign {filename} {treename} {branchname} {shift_fname} {bins} {low} {high} {#det}\n";
 		return 1; 
 	}
 

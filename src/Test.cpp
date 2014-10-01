@@ -155,8 +155,8 @@ int main(int argc, char* argv[]){
 		if(liq_struct->liquid_mult != 1){ continue; } // CHANGED! old: liq_struct->liquid_mult == 0
 		else{
 			index = i;
+			analysis->PreProcess(liq_wave->liquid_wave);
 			for(unsigned int pulse = 0; pulse < liq_struct->liquid_mult; pulse++){
-				analysis->PreProcess(liq_wave->liquid_wave);
 				analysis->Process(pulse*wave_size, (pulse+1)*wave_size);
 				analysis->PSD_Integration(method, long_value, short_value);
 				hist->Fill(long_value, short_value);
