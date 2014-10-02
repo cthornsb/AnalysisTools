@@ -13,7 +13,7 @@ SOURCE_DIR = $(TOP_LEVEL)/src
 OBJ_DIR = $(TOP_LEVEL)/obj
 DICT_OBJ_DIR = $(DICT_DIR)/obj
 
-TOOLS = TimeAlign TimeAlignCf CheckAlign PulseViewer PulseAnalyzer Stitcher Gater Overlay Averager
+TOOLS = TimeAlign TimeAlignCf CheckAlign PulseViewer PulseAnalyzer Stitcher Gater Overlay Averager DiffTime Qcalc Test
 
 # ROOT dictionary stuff
 DICT_SOURCE = RootDict
